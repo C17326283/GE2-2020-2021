@@ -14,14 +14,22 @@ public class BigBoid : MonoBehaviour
 
     public float mass = 1;
 
+    public Transform targetTransform;
+    public Transform fleeTransform;
+    
+    public bool fleeEnabled = true;
+    public Vector3 fleeTarget;
+    
     public bool seekEnabled = true;
-    public Transform seekTargetTransform;
     public Vector3 seekTarget;
 
     public bool arriveEnabled = false;
-    public Transform arriveTargetTransform;
     public Vector3 arriveTarget;
     public float slowingDistance = 10;
+
+    public Path path;
+    public float newTargetDistance = 0.5f;
+    public int waypointTargetNum = 0;
 
 
     public void OnDrawGizmos()
@@ -38,7 +46,7 @@ public class BigBoid : MonoBehaviour
         if (arriveEnabled)
         {
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(arriveTargetTransform.position, slowingDistance);
+            Gizmos.DrawWireSphere(targetTransform.position, slowingDistance);
         }
 
     }
@@ -49,6 +57,8 @@ public class BigBoid : MonoBehaviour
         
     }
 
+    
+    
     public Vector3 Seek(Vector3 target)
     {
         Vector3 toTarget = target - transform.position;
@@ -67,29 +77,71 @@ public class BigBoid : MonoBehaviour
 
         return desired - velocity;
     }
+    public Vector3 Flee(Vector3 target)
+    {
+        Vector3 toTarget = transform.position-target;
+        float dist = toTarget.magnitude;
+        float ramped = (10/dist) * maxSpeed;
+        float clamped = Mathf.Min(ramped, maxSpeed);
+        Vector3 desired = toTarget.normalized * clamped;
+
+        return (desired - velocity)*2;
+    } 
 
     public Vector3 CalculateForce()
     {
         Vector3 f = Vector3.zero;
         if (seekEnabled)
         {
-            if (seekTargetTransform != null)
+            if (targetTransform != null)
             {
-                seekTarget = seekTargetTransform.position;
+                seekTarget = targetTransform.position;
             }
             f += Seek(seekTarget);
         }
 
         if (arriveEnabled)
         {
-            if (arriveTargetTransform != null)
+            if (targetTransform != null)
             {
-                arriveTarget = arriveTargetTransform.position;                
+                arriveTarget = targetTransform.position;                
             }
             f += Arrive(arriveTarget);
         }
+        
+        
+        if (fleeEnabled)
+        {
+            if (fleeTransform != null)
+            {
+                fleeTarget = fleeTransform.position;
+                
+            }
+            if(Vector3.Distance(this.transform.position,fleeTarget)<10)
+                f += Flee(fleeTarget);
+
+        }
 
         return f;
+    }
+
+    public void FollowPath()
+    {
+        if (Vector3.Distance(this.transform.position, targetTransform.position) < newTargetDistance)
+        {
+            if (path.isLooped)
+            {
+                waypointTargetNum = (waypointTargetNum + 1) % path.waypoints.Count;
+            }
+            else
+            {
+                if (waypointTargetNum< path.waypoints.Count)
+                {
+                    waypointTargetNum += 1;
+                }
+            }
+        }
+        targetTransform.position = path.waypoints[waypointTargetNum];
     }
 
     // Update is called once per frame
@@ -103,6 +155,9 @@ public class BigBoid : MonoBehaviour
         if (speed > 0)
         {
             transform.forward = velocity;
-        }        
+        }
+        FollowPath();
+        
+        
     }
 }
